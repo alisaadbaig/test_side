@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base platform theme without an action bar; actual UI theming is done in
+         Compose via MaterialTheme, so no Material Components XML dependency is needed. -->
+    <style name="Theme.CardGen" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
