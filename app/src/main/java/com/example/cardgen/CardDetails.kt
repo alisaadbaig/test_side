@@ -5,11 +5,10 @@ import android.net.Uri
 /**
  * User-supplied details for the card to generate.
  *
- * [subjectPhoto], [referenceFront] and [referenceBack] are collected from the UI
- * so the app is ready to send them as input images. NOTE: the current networking
- * path uses the /v1/images/generations endpoint, which is text-prompt only and
- * does NOT upload these images. To actually feed the images to the model, switch
- * to the /v1/images/edits endpoint (see CardGenerator for details).
+ * [subjectPhoto], [referenceFront] and [referenceBack] are uploaded to the
+ * /v1/images/edits endpoint as image[] parts (subject first, then the reference
+ * card front/back) so gpt-image-1 can match the card design while preserving the
+ * subject's real face.
  */
 data class CardDetails(
     val name: String,
@@ -24,6 +23,11 @@ data class CardDetails(
 /**
  * Builds the gpt-image-1 prompt by filling the template placeholders with the
  * user's card details.
+ *
+ * The prompt is written for the /v1/images/edits endpoint, where the images are
+ * sent positionally: image 1 = subject, image 2 = reference front, image 3 =
+ * optional reference back. It strongly emphasises preserving the subject's exact
+ * age and identity so an adult is never rendered as a child.
  */
 fun buildCardPrompt(details: CardDetails): String {
     val cardNumberLine = if (details.cardNumber.isBlank()) {
@@ -33,51 +37,50 @@ fun buildCardPrompt(details: CardDetails): String {
     }
 
     return """
-        Create a premium collectible trading card.
+        Create a premium collectible trading card by editing the provided images.
 
-        Inputs:
-        1. Subject photo (person, child, adult, pet, or character)
-        2. Reference card front
-        3. Optional reference card back
+        Images provided (in order):
+        1. SUBJECT PHOTO — a real person. This is the face to put on the card.
+        2. REFERENCE CARD FRONT — the design template to copy.
+        3. (Optional) REFERENCE CARD BACK.
 
-        Instructions:
+        ===== CRITICAL — SUBJECT IDENTITY (highest priority) =====
+        - The person on the final card MUST be the exact same person as in the
+          subject photo (image 1).
+        - Preserve their EXACT age. Do NOT make them younger or older. If the
+          subject is an adult, the result MUST be that same adult — NEVER a child
+          or a teenager.
+        - Keep every distinguishing feature: face shape, skin tone, eyes,
+          eyebrows, nose, mouth, hairstyle and hairline, facial hair/beard/stubble,
+          wrinkles, and eyeglasses if the subject is wearing them.
+        - Keep the same gender and the same expression.
+        - This is a likeness of a specific real adult, not a generic or stylised
+          character. Do not beautify, de-age, or cartoonify the face.
 
-        - Preserve the uploaded subject's face and identity accurately.
-        - Keep facial features, hairstyle, skin tone, eyes, and expression as close as possible to the uploaded image.
-        - Use the reference card as the design template.
-        - Keep the original card's:
-          - Pose and body position
-          - Uniform or clothing style
-          - Card layout
-          - Background and effects
-          - Colors and borders
-          - Typography placement
-          - Logos and badges placement
-          - Overall premium look
+        ===== CARD DESIGN =====
+        - Use the reference card (image 2) as the exact design template.
+        - Copy the reference card's layout, borders, colors, background, effects,
+          typography placement, logos and badge placement, and overall premium look.
+        - Keep a similar pose and framing to the reference card.
+        - Replace ONLY the original player/subject with the subject from image 1.
 
-        Replace only the original player/subject with the uploaded subject.
-
-        Card Details:
+        Card Details (text to render on the card):
         - Name: ${details.name}
         - Title: ${details.title}
         - Team/Theme: ${details.teamOrTheme}
         $cardNumberLine
 
         Output Requirements:
-        - Front card only or front and back card as requested
-        - Flat printable design (not inside plastic case)
-        - Trading card size ratio (2.5 x 3.5 inches)
-        - High resolution (300 DPI or higher)
-        - Sharp text and graphics
-        - Realistic face with correct head-to-body ratio
-        - Professional collectible card appearance
-        - No blur
-        - No distorted face
-        - No extra fingers or limbs
-        - No watermarks
-        - Ready for printing and room decoration
+        - Front card only.
+        - Flat printable design (not inside a plastic case).
+        - Trading card size ratio (2.5 x 3.5 inches), portrait.
+        - High resolution, sharp text and graphics.
+        - Realistic face with correct adult head-to-body ratio.
+        - No blur, no distorted face, no extra fingers or limbs, no watermarks.
 
-        The final result should look like an officially printed premium trading card
-        that matches the reference card style while featuring the uploaded subject.
+        The final result should look like an officially printed premium trading
+        card that matches the reference card style while showing the exact same
+        adult person from the subject photo.
     """.trimIndent()
 }
+

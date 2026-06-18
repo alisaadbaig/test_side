@@ -3,6 +3,7 @@ package com.example.cardgen
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.util.Log
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit
  */
 object CardGenerator {
 
+    private const val TAG = "CardGen"
     private const val GENERATIONS_URL = "https://api.openai.com/v1/images/generations"
     private const val EDITS_URL = "https://api.openai.com/v1/images/edits"
 
@@ -65,6 +67,12 @@ object CardGenerator {
             callback(Result.Error("OpenAI API key is not set. Edit ApiConfig.OPENAI_API_KEY."))
             return
         }
+
+        // Log exactly what we send so it can be inspected in Logcat (tag "CardGen").
+        val endpoint = if (images.isNotEmpty()) "edits (images uploaded)" else "generations (text only)"
+        Log.d(TAG, "Endpoint: $endpoint")
+        Log.d(TAG, "Images: " + images.joinToString { "${it.fileName} (${it.bytes.size} bytes)" })
+        Log.d(TAG, "Prompt:\n$prompt")
 
         val request = if (images.isNotEmpty()) {
             buildEditsRequest(prompt, images)

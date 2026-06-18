@@ -201,7 +201,8 @@ fun CardGenScreen() {
                                 when (result) {
                                     is CardGenerator.Result.Success -> {
                                         resultBitmap = result.bitmap
-                                        statusMessage = "Card generated."
+                                        statusMessage =
+                                            "Card generated (${images.size} image(s) uploaded)."
                                     }
                                     is CardGenerator.Result.Error -> {
                                         statusMessage = result.message
