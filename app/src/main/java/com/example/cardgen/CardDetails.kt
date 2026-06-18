@@ -47,9 +47,10 @@ fun buildCardPrompt(details: CardDetails): String {
         ===== CRITICAL — SUBJECT IDENTITY (highest priority) =====
         - The person on the final card MUST be the exact same person as in the
           subject photo (image 1).
-        - Preserve their EXACT age. Do NOT make them younger or older. If the
-          subject is an adult, the result MUST be that same adult — NEVER a child
-          or a teenager.
+        - Preserve their EXACT age and age appearance. Do NOT make them younger or
+          older. If the subject is a child, keep them a child; if the subject is an
+          adult, keep them that same adult. Match the subject photo's apparent age
+          exactly.
         - Keep every distinguishing feature: face shape, skin tone, eyes,
           eyebrows, nose, mouth, hairstyle and hairline, facial hair/beard/stubble,
           wrinkles, and eyeglasses if the subject is wearing them.

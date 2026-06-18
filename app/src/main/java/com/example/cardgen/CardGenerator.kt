@@ -103,6 +103,7 @@ object CardGenerator {
             put("model", "gpt-image-1")
             put("prompt", prompt)
             put("size", "1024x1536")
+            put("quality", "high")
             put("n", 1)
         }
         val body = json.toString().toRequestBody("application/json".toMediaType())
@@ -119,6 +120,12 @@ object CardGenerator {
             .addFormDataPart("prompt", prompt)
             .addFormDataPart("size", "1024x1536")
             .addFormDataPart("n", "1")
+            // quality=high renders fine card detail; input_fidelity=high tells the
+            // model to faithfully preserve the input faces/details (this is the key
+            // setting for keeping the subject's real face, like ChatGPT does).
+            .addFormDataPart("quality", "high")
+            .addFormDataPart("input_fidelity", "high")
+            .addFormDataPart("output_format", "png")
 
         // Multiple input images are sent as repeated "image[]" parts. Order
         // matches the prompt: subject first, then reference front/back.
