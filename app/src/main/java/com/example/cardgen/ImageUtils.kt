@@ -7,9 +7,25 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.content.FileProvider
+import java.io.File
 import java.io.IOException
 
 object ImageUtils {
+
+    /**
+     * Creates an empty file in the app cache and returns a FileProvider content
+     * Uri for it. The camera app writes the captured photo to this Uri.
+     */
+    fun createCaptureUri(context: Context): Uri {
+        val dir = File(context.cacheDir, "images").apply { mkdirs() }
+        val file = File.createTempFile("capture_", ".jpg", dir)
+        return FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+    }
 
     /** Loads a (downsampled) bitmap from a content [uri] for preview thumbnails. */
     fun loadThumbnail(context: Context, uri: Uri, maxSize: Int = 512): Bitmap? {

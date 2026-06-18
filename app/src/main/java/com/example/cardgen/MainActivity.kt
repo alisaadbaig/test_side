@@ -23,9 +23,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -202,11 +202,18 @@ fun CardGenScreen() {
             }
 
             if (isLoading) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    CircularProgressIndicator()
+                    Text(
+                        "Generating your card… this can take up to a minute.",
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
             }
 
@@ -255,9 +262,18 @@ private fun ImagePickerRow(
     onPicked: (Uri?) -> Unit,
 ) {
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(
+
+    // Gallery picker.
+    val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
-    ) { picked -> onPicked(picked) }
+    ) { picked -> if (picked != null) onPicked(picked) }
+
+    // Camera capture. We pre-create a destination Uri and remember it so the
+    // result callback knows which Uri was just written to.
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success -> if (success) onPicked(pendingCameraUri) }
 
     val thumbnail = remember(uri) {
         uri?.let { ImageUtils.loadThumbnail(context, it) }
@@ -276,15 +292,39 @@ private fun ImagePickerRow(
                 modifier = Modifier.size(56.dp)
             )
         }
-        OutlinedButton(
-            onClick = {
-                launcher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-            },
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(if (uri == null) "Pick $label" else "Change $label")
+            Text(
+                if (uri == null) label else "$label ✓",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        galleryLauncher.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly
+                            )
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Gallery")
+                }
+                OutlinedButton(
+                    onClick = {
+                        val captureUri = ImageUtils.createCaptureUri(context)
+                        pendingCameraUri = captureUri
+                        cameraLauncher.launch(captureUri)
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Camera")
+                }
+            }
         }
     }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Camera captures are written to <cacheDir>/images and shared with the
+         camera app via FileProvider. -->
+    <cache-path name="camera_images" path="images/" />
+</paths>
