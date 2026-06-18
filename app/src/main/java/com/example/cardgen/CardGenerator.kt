@@ -100,7 +100,7 @@ object CardGenerator {
 
     private fun buildGenerationsRequest(prompt: String): Request {
         val json = JSONObject().apply {
-            put("model", "gpt-image-1")
+            put("model", ApiConfig.IMAGE_MODEL)
             put("prompt", prompt)
             put("size", "1024x1536")
             put("quality", "high")
@@ -116,16 +116,20 @@ object CardGenerator {
 
     private fun buildEditsRequest(prompt: String, images: List<InputImage>): Request {
         val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("model", "gpt-image-1")
+            .addFormDataPart("model", ApiConfig.IMAGE_MODEL)
             .addFormDataPart("prompt", prompt)
             .addFormDataPart("size", "1024x1536")
             .addFormDataPart("n", "1")
-            // quality=high renders fine card detail; input_fidelity=high tells the
-            // model to faithfully preserve the input faces/details (this is the key
-            // setting for keeping the subject's real face, like ChatGPT does).
+            // quality=high renders fine card detail (foil, badges, sharp text).
             .addFormDataPart("quality", "high")
-            .addFormDataPart("input_fidelity", "high")
             .addFormDataPart("output_format", "png")
+
+        // input_fidelity preserves the subject's real face. gpt-image-2 always
+        // does this automatically and REJECTS the param, so only send it for
+        // gpt-image-1.
+        if (ApiConfig.IMAGE_MODEL == "gpt-image-1") {
+            builder.addFormDataPart("input_fidelity", "high")
+        }
 
         // Multiple input images are sent as repeated "image[]" parts. Order
         // matches the prompt: subject first, then reference front/back.

@@ -60,8 +60,14 @@ whether images were supplied:
 - **Without images**: POST `https://api.openai.com/v1/images/generations`
   (text-prompt only).
 
-Either way, `gpt-image-1` returns the image as base64 in `data[0].b64_json`,
-which is decoded into a `Bitmap`.
+The model is set in `ApiConfig.IMAGE_MODEL` and defaults to **`gpt-image-2`**
+(best for layout/text-heavy cards; it always preserves input faces at high
+fidelity automatically). Switch it to `gpt-image-1` if your OpenAI org isn't
+verified for gpt-image-2 — the request code then sends `input_fidelity=high`
+automatically (gpt-image-2 rejects that param).
+
+Either way the model returns the image as base64 in `data[0].b64_json`, which is
+decoded into a `Bitmap`.
 
 ### Tips for good results
 
