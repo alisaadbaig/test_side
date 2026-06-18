@@ -27,6 +27,31 @@ object ImageUtils {
         )
     }
 
+    /**
+     * Reads the content at [uri] into a CardGenerator.InputImage, ready to be
+     * uploaded to the edits endpoint. [baseName] is used for the multipart file
+     * name (extension is derived from the MIME type). Returns null on failure.
+     */
+    fun toInputImage(
+        context: Context,
+        uri: Uri,
+        baseName: String,
+    ): CardGenerator.InputImage? {
+        val resolver = context.contentResolver
+        val mime = resolver.getType(uri) ?: "image/jpeg"
+        val ext = when {
+            mime.contains("png") -> "png"
+            mime.contains("webp") -> "webp"
+            else -> "jpg"
+        }
+        val bytes = try {
+            resolver.openInputStream(uri)?.use { it.readBytes() }
+        } catch (e: Exception) {
+            null
+        } ?: return null
+        return CardGenerator.InputImage(bytes, "$baseName.$ext", mime)
+    }
+
     /** Loads a (downsampled) bitmap from a content [uri] for preview thumbnails. */
     fun loadThumbnail(context: Context, uri: Uri, maxSize: Int = 512): Bitmap? {
         return try {

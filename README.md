@@ -49,24 +49,27 @@ Card**. The generated card is displayed and can be saved to the gallery.
 
 ## How the API call works
 
-The networking lives in `CardGenerator.kt` and posts to
-`https://api.openai.com/v1/images/generations` with `model: "gpt-image-1"`,
-the prompt, and `size: "1024x1536"` (≈ the 2.5×3.5 trading-card ratio).
-`gpt-image-1` returns the image as base64 in `data[0].b64_json`, which is decoded
-into a `Bitmap`.
+The networking lives in `CardGenerator.kt`. It chooses the endpoint based on
+whether images were supplied:
 
-### ⚠️ Important limitation: images are not uploaded in this mode
+- **With images** (the normal path): POST `https://api.openai.com/v1/images/edits`
+  as `multipart/form-data`, sending the subject photo and reference card(s) as
+  repeated `image[]` parts alongside the prompt and `size: "1024x1536"` (≈ the
+  2.5×3.5 trading-card ratio). This is what lets the model preserve the uploaded
+  subject's face and match the reference card design.
+- **Without images**: POST `https://api.openai.com/v1/images/generations`
+  (text-prompt only).
 
-The `/v1/images/generations` endpoint is **text-prompt only**. The subject photo
-and reference cards picked in the UI are previewed for convenience but are **not
-sent to the model** — the card is generated purely from the text prompt, so it
-will *not* preserve the uploaded person's face.
+Either way, `gpt-image-1` returns the image as base64 in `data[0].b64_json`,
+which is decoded into a `Bitmap`.
 
-To actually feed the images to the model (and preserve the subject's identity /
-match a reference card design), switch to the **`/v1/images/edits`** endpoint and
-send a multipart request with the `image[]` parts plus the prompt. The data model
-(`CardDetails`) already carries the image `Uri`s, so only `CardGenerator.kt`
-needs to change.
+### Tips for good results
+
+- Upload a **clear, well-lit subject photo** (face visible, not too small).
+- Upload the **reference front card** so the model has a design to match; the
+  reference back is optional.
+- Results vary between runs — generate a couple of times if the first isn't
+  great.
 
 ## Gradle wrapper note
 

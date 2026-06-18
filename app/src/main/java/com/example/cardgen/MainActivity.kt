@@ -137,8 +137,9 @@ fun CardGenScreen() {
                 fontSize = 18.sp
             )
             Text(
-                "Note: the current /v1/images/generations endpoint is text-only, " +
-                    "so picked images are previewed but not sent to the model yet.",
+                "For best results upload a clear subject photo and a reference " +
+                    "front card. These images are sent to the model (via the edits " +
+                    "endpoint) so it can match the card design and the subject's face.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -180,16 +181,31 @@ fun CardGenScreen() {
                     statusMessage = null
                     resultBitmap = null
                     val prompt = buildCardPrompt(details)
-                    CardGenerator.generate(prompt) { result ->
-                        scope.launch(Dispatchers.Main) {
-                            isLoading = false
-                            when (result) {
-                                is CardGenerator.Result.Success -> {
-                                    resultBitmap = result.bitmap
-                                    statusMessage = "Card generated."
-                                }
-                                is CardGenerator.Result.Error -> {
-                                    statusMessage = result.message
+                    scope.launch(Dispatchers.IO) {
+                        // Read the picked images off the main thread. Order
+                        // matches the prompt: subject, reference front, back.
+                        val images = buildList {
+                            details.subjectPhoto?.let {
+                                ImageUtils.toInputImage(context, it, "subject")?.let(::add)
+                            }
+                            details.referenceFront?.let {
+                                ImageUtils.toInputImage(context, it, "reference_front")?.let(::add)
+                            }
+                            details.referenceBack?.let {
+                                ImageUtils.toInputImage(context, it, "reference_back")?.let(::add)
+                            }
+                        }
+                        CardGenerator.generate(prompt, images) { result ->
+                            scope.launch(Dispatchers.Main) {
+                                isLoading = false
+                                when (result) {
+                                    is CardGenerator.Result.Success -> {
+                                        resultBitmap = result.bitmap
+                                        statusMessage = "Card generated."
+                                    }
+                                    is CardGenerator.Result.Error -> {
+                                        statusMessage = result.message
+                                    }
                                 }
                             }
                         }

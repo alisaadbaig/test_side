@@ -6,6 +6,7 @@ import android.util.Base64
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -15,27 +16,36 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Thin client around the OpenAI image generation API.
+ * Thin client around the OpenAI image API.
  *
- * This uses the /v1/images/generations endpoint exactly as in the project notes.
- * That endpoint is TEXT-PROMPT ONLY: the subject/reference images picked in the
- * UI are not sent to the model here, so the result is generated purely from the
- * text prompt.
+ * Behaviour depends on whether input images are supplied:
  *
- * To actually use the uploaded images (preserve the subject's face from the
- * reference card design), switch to the /v1/images/edits endpoint and send a
- * multipart request with the image[] parts plus the prompt. The data model
- * (CardDetails) already carries the image Uris for that future change.
+ *  - With images -> POST /v1/images/edits as multipart/form-data, sending the
+ *    subject photo and reference card(s) as image[] parts. This is what lets the
+ *    model preserve the uploaded subject's face and match the reference card.
+ *
+ *  - Without images -> POST /v1/images/generations (text-prompt only).
+ *
+ * Both endpoints return the image as base64 in data[0].b64_json.
  */
 object CardGenerator {
 
     private const val GENERATIONS_URL = "https://api.openai.com/v1/images/generations"
+    private const val EDITS_URL = "https://api.openai.com/v1/images/edits"
 
     private val client = OkHttpClient.Builder()
         // Image generation can take a while; give it room.
-        .callTimeout(120, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
+        .callTimeout(180, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(180, TimeUnit.SECONDS)
         .build()
+
+    /** An image to send to the edits endpoint. */
+    data class InputImage(
+        val bytes: ByteArray,
+        val fileName: String,
+        val mimeType: String,
+    )
 
     sealed interface Result {
         data class Success(val bitmap: Bitmap) : Result
@@ -43,30 +53,24 @@ object CardGenerator {
     }
 
     /**
-     * Generates a card from [prompt] and returns the result on [callback].
-     * The callback is invoked on a background thread.
+     * Generates a card from [prompt] and any [images], invoking [callback] on a
+     * background thread.
      */
-    fun generate(prompt: String, callback: (Result) -> Unit) {
+    fun generate(
+        prompt: String,
+        images: List<InputImage> = emptyList(),
+        callback: (Result) -> Unit,
+    ) {
         if (!ApiConfig.isKeyConfigured()) {
             callback(Result.Error("OpenAI API key is not set. Edit ApiConfig.OPENAI_API_KEY."))
             return
         }
 
-        val json = JSONObject().apply {
-            put("model", "gpt-image-1")
-            put("prompt", prompt)
-            put("size", "1024x1536")
-            put("n", 1)
+        val request = if (images.isNotEmpty()) {
+            buildEditsRequest(prompt, images)
+        } else {
+            buildGenerationsRequest(prompt)
         }
-
-        val body = json.toString().toRequestBody("application/json".toMediaType())
-
-        val request = Request.Builder()
-            .url(GENERATIONS_URL)
-            .addHeader("Authorization", "Bearer ${ApiConfig.OPENAI_API_KEY}")
-            .addHeader("Content-Type", "application/json")
-            .post(body)
-            .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -84,6 +88,45 @@ object CardGenerator {
                 }
             }
         })
+    }
+
+    private fun buildGenerationsRequest(prompt: String): Request {
+        val json = JSONObject().apply {
+            put("model", "gpt-image-1")
+            put("prompt", prompt)
+            put("size", "1024x1536")
+            put("n", 1)
+        }
+        val body = json.toString().toRequestBody("application/json".toMediaType())
+        return Request.Builder()
+            .url(GENERATIONS_URL)
+            .addHeader("Authorization", "Bearer ${ApiConfig.OPENAI_API_KEY}")
+            .post(body)
+            .build()
+    }
+
+    private fun buildEditsRequest(prompt: String, images: List<InputImage>): Request {
+        val builder = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("model", "gpt-image-1")
+            .addFormDataPart("prompt", prompt)
+            .addFormDataPart("size", "1024x1536")
+            .addFormDataPart("n", "1")
+
+        // Multiple input images are sent as repeated "image[]" parts. Order
+        // matches the prompt: subject first, then reference front/back.
+        for (img in images) {
+            builder.addFormDataPart(
+                "image[]",
+                img.fileName,
+                img.bytes.toRequestBody(img.mimeType.toMediaType())
+            )
+        }
+
+        return Request.Builder()
+            .url(EDITS_URL)
+            .addHeader("Authorization", "Bearer ${ApiConfig.OPENAI_API_KEY}")
+            .post(builder.build())
+            .build()
     }
 
     /** gpt-image-1 returns the image as base64 in data[0].b64_json. */
